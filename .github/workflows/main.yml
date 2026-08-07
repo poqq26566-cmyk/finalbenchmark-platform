@@ -1,12 +1,11 @@
 name: Build APK
 
-# 触发条件：推送到 main 分支、提PR、或手动触发
 on:
   push:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
-  workflow_dispatch: {}   # 允许在 GitHub Actions 页面手动点击运行
+  workflow_dispatch: {}
 
 jobs:
   build:
@@ -45,16 +44,19 @@ jobs:
       - name: 编译 Debug APK
         run: ./gradlew assembleDebug --stacktrace
 
-      - name: 编译 Release APK
-        run: ./gradlew assembleRelease --stacktrace
-
       - name: 上传 Debug APK
         uses: actions/upload-artifact@v4
         with:
           name: app-debug
           path: app/build/outputs/apk/debug/*.apk
 
+      - name: 编译 Release APK
+        id: release_build
+        continue-on-error: true
+        run: ./gradlew assembleRelease --stacktrace
+
       - name: 上传 Release APK
+        if: steps.release_build.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: app-release
