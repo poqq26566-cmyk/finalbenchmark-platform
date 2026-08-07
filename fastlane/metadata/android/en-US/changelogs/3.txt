@@ -1,0 +1,10 @@
+Change log for version v0.2.25:
+- Updated theme dropdown labels to "Light Monet" and "Dark Monet"
+- Updated rankings with real benchmark data: Snapdragon 8 Gen 3 (1110), Dimensity 8300 (950), Snapdragon 845 (270)
+- Fixed permission request cards centering alignment
+- Improved Hardware section card styling to match OS section
+- Unified Score Scaling for single and multi core scores
+- Removed screen orientation restriction to support foldables and tablets (Android 16+)
+
+
+

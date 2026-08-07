@@ -1,0 +1,6 @@
+v0.3 - UI, Fixes & Algo Overhaul
+
+Algorithm: Implemented Strassen’s O(n2.807) for consistency; fixed caching and workload parameters.
+UI/UX: Enhanced GPU/CPU topology; added MP Ratio card; fixed Monokai theme visibility.
+Reliability: Synced ranking data across screens; refined CPU Governor hints.
+Misc: Updated thermal tips and adjusted scoring balance.

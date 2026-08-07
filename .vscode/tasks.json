@@ -1,0 +1,130 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Build Debug APK",
+			"type": "shell",
+			"command": "./gradlew assembleDebug --no-daemon",
+			"problemMatcher": [
+				"$kotlinc"
+			],
+			"group": "build"
+		},
+		{
+			"label": "Build Debug APK v2",
+			"type": "shell",
+			"command": "./gradlew assembleDebug --no-daemon",
+			"problemMatcher": [
+				"$kotlinc"
+			],
+			"group": "build"
+		},
+		{
+			"label": "Build Debug APK",
+			"type": "shell",
+			"command": "./gradlew assembleDebug",
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "Build Debug APK 2",
+			"type": "shell",
+			"command": "./gradlew assembleDebug",
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "Git commit and push",
+			"type": "shell",
+			"command": "git add -A && git commit -m \"fix: COMPILER_BARRIER macro + recalibrate native RAM reference values\\n\\n- Add #define COMPILER_BARRIER() __asm__ volatile(\\\"\\\" ::: \\\"memory\\\") after now_ns()\\n- now_ns() already has __attribute__((noinline)) to defeat -O3 clock hoisting\\n- Add COMPILER_BARRIER() before/after memcpy and NEON loops in all 5 tests\\n- Recalibrate RAM_REFERENCE_NATIVE from actual SD 8 Gen 3 measurements:\\n  SeqRead 27000 (was 20000), SeqWrite 15000 (was 16000),\\n  RandAccess 120 ns (was 200), MemCopy 22000 estimate, MultiThread 52000 (was 40000)\" && git push",
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "Build and Deploy APK v3",
+			"type": "shell",
+			"command": "cd /home/flux/repos/finalbenchmark-platform && ./gradlew assembleDebug && cp app/build/outputs/apk/debug/app-debug.apk /sdcard/Download/finalbenchmark-debug.apk && echo 'DEPLOYED OK'"
+		},
+		{
+			"label": "Clean CMake and Build v4",
+			"type": "shell",
+			"command": "cd /home/flux/repos/finalbenchmark-platform && git diff HEAD -- app/src/main/cpp/ram_benchmark.c | head -20 && echo '---GREP---' && grep -n 'COMPILER_BARRIER' app/src/main/cpp/ram_benchmark.c && echo '---CLEAN---' && rm -rf app/.cxx/Release/3olm638o && ./gradlew assembleDebug 2>&1 | grep -E 'BUILD|error:' | head -20 && cp app/build/outputs/apk/debug/app-debug.apk /sdcard/Download/finalbenchmark-debug.apk && echo 'DEPLOYED OK'"
+		},
+		{
+			"label": "Inspect define line",
+			"type": "shell",
+			"command": "cd /home/flux/repos/finalbenchmark-platform && sed -n '46,56p' app/src/main/cpp/ram_benchmark.c | cat -A"
+		},
+		{
+			"label": "Hex dump define",
+			"type": "shell",
+			"command": "cd /home/flux/repos/finalbenchmark-platform && sed -n '46,56p' app/src/main/cpp/ram_benchmark.c | xxd | head -30"
+		},
+		{
+			"label": "Debug COMPILER_BARRIER",
+			"type": "shell",
+			"command": "cd /home/flux/repos/finalbenchmark-platform && python3 -c \"\nimport re\nwith open('app/src/main/cpp/ram_benchmark.c', 'r', encoding='utf-8') as f:\n    content = f.read()\nold = re.search(r'#define COMPILER_BARRIER\\(\\).*?\\n', content, re.DOTALL)\nif old:\n    print('FOUND:', repr(old.group()[:80]))\nelse:\n    print('NOT FOUND')\n    # Print surrounding lines\n    for i, line in enumerate(content.splitlines(), 1):\n        if 'COMPILER_BARRIER' in line and '#define' in line:\n            print(f'Line {i}:', repr(line))\n\""
+		},
+		{
+			"label": "Fix COMPILER_BARRIER macro",
+			"type": "shell",
+			"command": "python3 << 'PYEOF'\nimport re\npath = 'app/src/main/cpp/ram_benchmark.c'\nwith open(path, 'r', encoding='utf-8') as f:\n    content = f.read()\n# Remove any existing broken or correct #define COMPILER_BARRIER line(s)\ncontent = re.sub(r'#define COMPILER_BARRIER[^\\n]*\\n(?:e\\([^\\n]*\\n)?', '', content)\n# Insert clean define after the now_ns closing brace block\n# Find the end of the now_ns function and the following blank line\ninsert_after = '    return (int64_t)ts.tv_sec * 1000000000LL + (int64_t)ts.tv_nsec;\\n}\\n'\nclean_define = insert_after + '\\n/* COMPILER_BARRIER: memory clobber prevents -O3 from hoisting clock reads */\\n#define COMPILER_BARRIER() do { __asm__ volatile(\"\" ::: \"memory\"); } while (0)\\n'\ncontent = content.replace(insert_after, clean_define, 1)\nwith open(path, 'w', encoding='utf-8') as f:\n    f.write(content)\nprint('Done - verify:')\nimport subprocess\nresult = subprocess.run(['grep', '-n', 'COMPILER_BARRIER', path], capture_output=True, text=True)\nprint(result.stdout[:500])\nPYEOF"
+		},
+		{
+			"label": "Rebuild and commit MemCopy fix",
+			"type": "shell",
+			"command": "cd /home/flux/repos/finalbenchmark-platform && ./gradlew assembleDebug 2>&1 | tail -5 && cp app/build/outputs/apk/debug/app-debug.apk /sdcard/Download/finalbenchmark-debug.apk && echo 'DEPLOYED OK' && git add -A && git commit -m 'fix: nativeMemCopy dead-store elim via noinline do_memcpy_once wrapper\n\n- Clang -O3 inlines memcpy(dst, src, CONST) and eliminates it as dead store\n  since dst is never read back, causing 875 TB/s bogus result\n- Add __attribute__((noinline)) do_memcpy_once() wrapper with asm r(dst)\n  constraint to force compiler to treat destination as observable\n- Switch from unreliable while(now_ns()<end_ns) to calibrated fixed-REPS\n  block timing to eliminate the spin-if-memcpy-is-nop failure mode\n- Also fix COMPILER_BARRIER() to do{...}while(0) form' && git push"
+		},
+		{
+			"label": "Recalibrate refs and deploy",
+			"type": "shell",
+			"command": "cd /home/flux/repos/finalbenchmark-platform && ./gradlew assembleDebug 2>&1 | tail -5 && cp app/build/outputs/apk/debug/app-debug.apk /sdcard/Download/finalbenchmark-debug.apk && echo 'DEPLOYED OK' && git add -A && git commit -m 'fix: recalibrate MemCopy and MultiThread reference values from actual measurements\n\nMEM_COPY: 25000 -> 15000 (measured 15339 MB/s after dead-store-elim fix)\nMULTI_THREAD: 52000 -> 58000 (measured 57864 MB/s on SD 8 Gen 3)' && git push"
+		},
+		{
+			"label": "Build, deploy, commit storage benchmark",
+			"type": "shell",
+			"command": "cd /home/flux/repos/finalbenchmark-platform && ./gradlew assembleDebug 2>&1 | grep -E 'error:|BUILD|FAILED|warning:.*StorageBenchmark' | head -30 && echo '---' && cp app/build/outputs/apk/debug/app-debug.apk /sdcard/Download/finalbenchmark-debug.apk && echo 'DEPLOYED OK' && git add -A && git commit -m 'feat: Storage benchmark (6 tests: SeqRead/Write, Rand4K, SmallFiles, SQLite, Mixed)\\n\\n- StorageBenchmarkViewModel: pure-Kotlin I/O tests on Dispatchers.IO\\n  - SEQ_READ:    256MB FileInputStream 1MB-chunk timed loop (MB/s)\\n  - SEQ_WRITE:   256MB FileOutputStream + fsync per pass (MB/s)\\n  - RAND_4K:     RandomAccessFile LCG-random 4KB seeks on 128MB file (MB/s)\\n  - SMALL_FILES: 300x8KB create/write/delete batch (files/s)\\n  - SQLITE:      WAL-mode 1000-row INSERT + indexed SELECT txns (txn/s)\\n  - MIXED:       16MB seq + 200 rand-4K + 50 small files composite (MB/s)\\n  - Reference values targeting SD 8 Gen 3 (UFS 4.0) = 100 pts (needs calibration)\\n  - Geometric-mean total score matching RAM benchmark pattern\\n  - Full DB save + result JSON matching existing schema\\n- StorageBenchmarkScreen: Compose UI with amber/orange and test-keyed accent colours\\n- MainNavigation: STORAGE case routes to StorageBenchmarkScreen\\n- HomeScreen: STORAGE added to preset-hidden categories\\n- docs/benchmark/ram_implementation.md: complete RAM benchmark implementation reference' && git push"
+		},
+		{
+			"label": "Get Kotlin compile errors",
+			"type": "shell",
+			"command": "cd /home/flux/repos/finalbenchmark-platform && ./gradlew compileDebugKotlin 2>&1 | grep -A3 'error:' | head -60"
+		},
+		{
+			"label": "Build storage result fix",
+			"type": "shell",
+			"command": "cd /home/flux/repos/finalbenchmark-platform && ./gradlew assembleDebug 2>&1 | tail -10"
+		},
+		{
+			"label": "Get compile errors",
+			"type": "shell",
+			"command": "cd /home/flux/repos/finalbenchmark-platform && ./gradlew compileDebugKotlin 2>&1 | grep '^e:' | head -20"
+		},
+		{
+			"label": "Capture Kotlin errors",
+			"type": "shell",
+			"command": "cd /home/flux/repos/finalbenchmark-platform && ./gradlew compileDebugKotlin 2>/tmp/kerr.txt; cat /tmp/kerr.txt | grep '^e:'"
+		},
+		{
+			"label": "Build deploy commit storage fix",
+			"type": "shell",
+			"command": "cd /home/flux/repos/finalbenchmark-platform && ./gradlew assembleDebug && cp app/build/outputs/apk/debug/app-debug.apk /sdcard/Download/finalbenchmark-debug.apk && echo 'DEPLOYED OK' && git add -A && git commit -m 'fix: add STORAGE branch in DetailedDataTab + StorageThroughputChart + fix unit labels' && git push"
+		},
+		{
+			"label": "Build and Deploy APK",
+			"type": "shell",
+			"command": "cd /home/flux/repos/finalbenchmark-platform && ./gradlew assembleDebug && cp app/build/outputs/apk/debug/app-debug.apk /sdcard/Download/finalbenchmark-debug.apk && echo 'APK copied to /sdcard/Download/finalbenchmark-debug.apk'",
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "Build Release APK",
+			"type": "shell",
+			"command": "./gradlew assembleRelease",
+			"problemMatcher": [
+				"$kotlinc"
+			],
+			"group": "build"
+		}
+	]
+}

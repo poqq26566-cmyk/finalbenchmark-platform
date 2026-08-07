@@ -1,0 +1,15 @@
+UI & UX Improvements:
+- New Focus Card design for active benchmarks
+- Updated Home Screen stats cards with glassmorphism & smooth animations
+- Smoother auto-scroll animation
+- Visual cleanup and refined list layout
+
+Timer Enhancements:
+- Smarter countdown timer with auto-extension
+- Added Elapsed Time display
+- Fixed premature status messages
+
+Performance Fixes:
+- Optimized Result Screen loading speed
+- Fixed Bottom Navigation Bar animation
+- General stability improvements

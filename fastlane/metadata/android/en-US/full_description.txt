@@ -1,0 +1,7 @@
+Finalbenchmark 2 is a comprehensive CPU benchmarking tool.
+
+<b>Key Features:</b>
+• Multi-threaded CPU stress testing with real-time monitoring
+• Single-core and multi-core performance benchmarks
+• Temperature tracking during intensive tests
+
